@@ -52,6 +52,10 @@ A beautiful, interactive habit tracking application built with React that helps 
 - Efficient re-rendering with proper key props
 - Optimized event handlers
 
+## 📸 Preview
+
+![App Preview](https://raw.githubusercontent.com/Qasim-Rokeeb/personal-habit-tracker/main/screenshot.png)
+
 ## 📁 Project Structure
 
 ```
