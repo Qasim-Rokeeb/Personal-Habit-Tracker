@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Calendar, TrendingUp, Award, Trash2, CheckCircle2, Circle } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import React, { useState, useMemo } from 'react';
+import { Plus, Calendar, TrendingUp, Award, Trash2, CheckCircle2, Circle, BarChart3 } from 'lucide-react';
 
 const HabitTracker = () => {
   const [habits, setHabits] = useState([
@@ -87,6 +86,20 @@ const HabitTracker = () => {
     return days;
   };
 
+  const getLast30Days = () => {
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push({
+        date: getDateKey(date),
+        day: date.getDate(),
+        dayName: date.toLocaleDateString('en', { weekday: 'short' })
+      });
+    }
+    return days;
+  };
+
   const getWeeklyProgress = () => {
     const last7Days = getLast7Days();
     return last7Days.map(day => {
@@ -101,18 +114,12 @@ const HabitTracker = () => {
   };
 
   const getHabitAnalytics = (habit) => {
-    const last30Days = [];
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateKey = getDateKey(date);
-      last30Days.push({
-        date: dateKey,
-        day: date.getDate(),
-        completed: habit.completions[dateKey] ? 1 : 0
-      });
-    }
-    return last30Days;
+    const last30Days = getLast30Days();
+    return last30Days.map(day => ({
+      date: day.date,
+      day: day.day,
+      completed: habit.completions[day.date] ? 1 : 0
+    }));
   };
 
   const totalCompletions = useMemo(() => {
@@ -122,6 +129,93 @@ const HabitTracker = () => {
   const averageStreak = useMemo(() => {
     return habits.length > 0 ? Math.round(habits.reduce((sum, habit) => sum + habit.streak, 0) / habits.length) : 0;
   }, [habits]);
+
+  // Custom Chart Components
+  const SimpleBarChart = ({ data, height = 200 }) => {
+    const maxValue = Math.max(...data.map(d => d.completed));
+    
+    return (
+      <div className="w-full" style={{ height }}>
+        <div className="flex items-end justify-center h-full gap-4 px-4">
+          {data.map((item, index) => (
+            <div key={index} className="flex flex-col items-center flex-1">
+              <div className="w-full flex flex-col items-center justify-end h-full">
+                <div
+                  className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600 min-h-[4px]"
+                  style={{
+                    height: maxValue > 0 ? `${(item.completed / maxValue) * 80}%` : '4px'
+                  }}
+                  title={`${item.day}: ${item.completed}/${item.total} habits (${item.percentage}%)`}
+                />
+                <div className="text-xs text-gray-600 mt-2">{item.day}</div>
+                <div className="text-xs text-gray-500">{item.percentage}%</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const SimpleLineChart = ({ data, color, height = 200 }) => {
+    const points = data.map((item, index) => ({
+      x: (index / (data.length - 1)) * 100,
+      y: item.completed ? 20 : 80,
+      completed: item.completed
+    }));
+
+    const pathData = points.map((point, index) => 
+      `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+    ).join(' ');
+
+    return (
+      <div className="w-full" style={{ height }}>
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <defs>
+            <linearGradient id="grid" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f3f4f6" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#e5e7eb" stopOpacity="0.3" />
+            </linearGradient>
+          </defs>
+          
+          {/* Grid lines */}
+          <defs>
+            <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="100" height="100" fill="url(#smallGrid)" />
+          
+          {/* Data line */}
+          <path
+            d={pathData}
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          
+          {/* Data points */}
+          {points.map((point, index) => (
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r="2"
+              fill={point.completed ? color : '#e5e7eb'}
+              stroke={color}
+              strokeWidth="1"
+            />
+          ))}
+          
+          {/* Labels */}
+          <text x="5" y="25" className="text-xs fill-green-600" fontSize="4">Completed</text>
+          <text x="5" y="85" className="text-xs fill-gray-400" fontSize="4">Missed</text>
+        </svg>
+      </div>
+    );
+  };
 
   const HeatmapCell = ({ habit, date, size = 'w-8 h-8' }) => {
     const isCompleted = habit.completions[date.date];
@@ -146,6 +240,7 @@ const HabitTracker = () => {
   if (view === 'analytics' && selectedHabit) {
     const habit = habits.find(h => h.id === selectedHabit);
     const analytics = getHabitAnalytics(habit);
+    const completionRate = Math.round((Object.keys(habit.completions).length / 30) * 100);
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
@@ -178,40 +273,34 @@ const HabitTracker = () => {
             
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h3 className="text-lg font-semibold mb-2">Success Rate (30 days)</h3>
-              <p className="text-3xl font-bold text-gray-800">
-                {Math.round((Object.keys(habit.completions).length / 30) * 100)}%
-              </p>
+              <p className="text-3xl font-bold text-gray-800">{completionRate}%</p>
             </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h3 className="text-xl font-semibold mb-4">30-Day Progress</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analytics}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis domain={[0, 1]} tickFormatter={(value) => value ? 'Done' : 'Missed'} />
-                <Tooltip 
-                  formatter={(value) => [value ? 'Completed' : 'Missed', 'Status']}
-                  labelFormatter={(label) => `Day ${label}`}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="completed" 
-                  stroke={habit.color} 
-                  strokeWidth={3}
-                  dot={{ fill: habit.color, strokeWidth: 2, r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <h3 className="text-xl font-semibold mb-4">30-Day Progress Trend</h3>
+            <SimpleLineChart data={analytics} color={habit.color} height={300} />
+            <div className="mt-4 text-center text-sm text-gray-600">
+              Last 30 days • Green dots = completed, Gray dots = missed
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-semibold mb-4">30-Day Heatmap</h3>
-            <div className="grid grid-cols-10 gap-2">
+            <h3 className="text-xl font-semibold mb-4">30-Day Calendar Heatmap</h3>
+            <div className="grid grid-cols-10 gap-2 mb-4">
               {analytics.map((day, index) => (
                 <HeatmapCell key={index} habit={habit} date={day} />
               ))}
+            </div>
+            <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded opacity-30" style={{ backgroundColor: habit.color }}></div>
+                <span>Missed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: habit.color }}></div>
+                <span>Completed</span>
+              </div>
             </div>
           </div>
         </div>
@@ -297,21 +386,11 @@ const HabitTracker = () => {
 
         {/* Weekly Progress Chart */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Weekly Progress</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={getWeeklyProgress()}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value, name) => [
-                  name === 'completed' ? `${value} completed` : `${value}%`,
-                  name === 'completed' ? 'Habits' : 'Success Rate'
-                ]}
-              />
-              <Bar dataKey="completed" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-blue-500" />
+            <h2 className="text-xl font-semibold">Weekly Progress</h2>
+          </div>
+          <SimpleBarChart data={getWeeklyProgress()} height={250} />
         </div>
 
         {/* Habits List */}
