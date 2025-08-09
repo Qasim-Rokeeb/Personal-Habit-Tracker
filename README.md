@@ -56,6 +56,9 @@ A beautiful, interactive habit tracking application built with React that helps 
 
 ![App Preview](https://raw.githubusercontent.com/Qasim-Rokeeb/personal-habit-tracker/main/screenshot.png)
 
+## 🌐 Live URL
+
+[https://personal-habit-tracker.vercel.app/](https://personal-habit-tracker.vercel.app/)
 ## 📁 Project Structure
 
 ```
